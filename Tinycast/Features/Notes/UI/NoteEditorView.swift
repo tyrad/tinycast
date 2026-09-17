@@ -5,6 +5,8 @@ struct NoteEditorView: NSViewRepresentable {
     let input: NoteEditorInput
     let onSourceChange: (String) -> Void
     let onCharacterCountChange: (NoteEditorInput, Int) -> Void
+    /// True while an IME holds marked text, which leaves `source` empty.
+    var isComposing: Binding<Bool> = .constant(false)
     let onReady: (NoteTextView) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -64,6 +66,7 @@ struct NoteEditorView: NSViewRepresentable {
             isInstalling = false
             if resetUndo { editorUndoManager.removeAllActions() }
             reportCharacterCount()
+            reportComposing()
         }
 
         func update(_ next: NoteEditorInput) {
@@ -86,9 +89,22 @@ struct NoteEditorView: NSViewRepresentable {
             reportCharacterCount()
         }
 
+        /// Selection is the only notification a marked-text change posts; `didChange` waits for commit.
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard !isInstalling else { return }
+            reportComposing()
+        }
+
         /// `NSTextStorage.length` is maintained by TextKit, so the counter costs nothing per edit.
         private func reportCharacterCount() {
             parent.onCharacterCountChange(input, textView?.textStorage?.length ?? 0)
+        }
+
+        private func reportComposing() {
+            let composing = textView?.hasMarkedText() ?? false
+            // Caret motion posts selection too; a same-value write still refreshes the overlay.
+            guard parent.isComposing.wrappedValue != composing else { return }
+            parent.isComposing.wrappedValue = composing
         }
     }
 

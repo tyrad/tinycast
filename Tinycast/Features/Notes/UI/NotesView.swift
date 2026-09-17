@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotesView: View {
     @Environment(NotesCoordinator.self) private var notes
+    @State private var isComposing = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +53,7 @@ struct NotesView: View {
                 input: notes.editorInput,
                 onSourceChange: notes.updateSource,
                 onCharacterCountChange: notes.updateCharacterCount,
+                isComposing: $isComposing,
                 onReady: notes.editorReady
             )
             .overlay(alignment: .topLeading) { placeholder }
@@ -61,7 +63,8 @@ struct NotesView: View {
 
     @ViewBuilder
     private var placeholder: some View {
-        if notes.isActiveNoteEmpty {
+        // An IME's marked text leaves `source` empty, so the placeholder would overlap it.
+        if notes.isActiveNoteEmpty, !isComposing {
             Text("Start writing…")
                 .font(.body)
                 .foregroundStyle(Theme.Colors.textTertiary)
